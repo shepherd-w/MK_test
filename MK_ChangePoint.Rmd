@@ -1,0 +1,192 @@
+---
+title: "JZB14MK突变检验"
+author: "wm"
+date: "5/14/2022"
+output: html_document
+#library(egg)#控制绘图区大小，以保证标签文字等所占空间不同时，同批图像还是同样大小
+#library(grid)
+---
+
+```{r start}
+library(readxl)
+library(tidyverse)
+#library(ggplot2)
+library(patchwork)
+```
+
+```{r Load data}
+JZB14 <- read_excel("~/Nutstore Files/RDate/MK test/JZB14.xlsx")
+#View(JZB14)
+#----sort
+n = nrow(JZB14)
+toc = round(JZB14$toc,2) 
+tn = round(JZB14$tn,3)
+cnratio = round(JZB14$cnratio,2)
+c13 = round(JZB14$c13,2)
+n15 = round(JZB14$n15,2)
+bsi = round(JZB14$bsi,2)
+tp = round(JZB14$tp,2)
+ip = round(JZB14$ip,2)
+op = round(JZB14$op,2)
+
+#----function
+mkruption = function(value,n){
+  r = vector("integer", n)
+  for (i in 2:n) {
+    for (j in 1:i) {
+      if(value[i]>value[j]){
+        r[i]=r[i]+1
+      }
+    }
+  }
+  Sk = vector("integer", n)
+  for (i in 2:n) {
+    for (j in 1:i) {
+      Sk[i]=Sk[i]+r[j]
+    }
+  }
+  UFk = vector("integer", n)
+  for (i in 2:n) {
+    E=i*(i-1)/4
+    Var=i*(i-1)*(2*i+5)/72
+    UFk[i]=(Sk[i]-E)/sqrt(Var)
+  }
+  return(UFk)
+}
+#计算统计量并且将数据转换成长表格
+#----toc
+UFtoc = mkruption(toc,n) 
+UBtoc = rev(-mkruption(rev(toc),n))
+tb_toc = pivot_longer(tibble(UFtoc = UFtoc,
+                             UBtoc = UBtoc,
+                             depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----tn
+UFtn = mkruption(tn,n) 
+UBtn = rev(-mkruption(rev(tn),n))
+tb_tn = pivot_longer(tibble(UFtn = UFtn,
+                            UBtn = UBtn,
+                            depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----cnratio
+UFcnratio = mkruption(cnratio,n) 
+UBcnratio = rev(-mkruption(rev(cnratio),n))
+tb_cnratio = pivot_longer(tibble(UFcnratio = UFcnratio,
+                                 UBcnratio = UBcnratio,
+                                 depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----c13
+UFc13 = mkruption(c13,n) 
+UBc13 = rev(-mkruption(rev(c13),n))
+tb_c13 = pivot_longer(tibble(UFc13 = UFc13,
+                             UBc13 = UBc13,
+                             depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----n15
+UFn15 = mkruption(n15,n) 
+UBn15 = rev(-mkruption(rev(n15),n))
+tb_n15 = pivot_longer(tibble(UFn15 = UFn15,
+                             UBn15 = UBn15,
+                             depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----bsi
+UFbsi = mkruption(bsi,n) 
+UBbsi = rev(-mkruption(rev(bsi),n))
+tb_bsi = pivot_longer(tibble(UFbsi = UFbsi,
+                             UBbsi = UBbsi,
+                             depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----tp
+UFtp = mkruption(tp,n) 
+UBtp = rev(-mkruption(rev(tp),n))
+tb_tp = pivot_longer(tibble(UFtp = UFtp,
+                            UBtp = UBtp,
+                            depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----ip
+UFip = mkruption(ip,n) 
+UBip = rev(-mkruption(rev(ip),n))
+tb_ip = pivot_longer(tibble(UFip = UFip,
+                            UBip = UBip,
+                            depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----op
+UFop = mkruption(op,n) 
+UBop = rev(-mkruption(rev(op),n))
+tb_op = pivot_longer(tibble(UFop = UFop,
+                            UBop = UBop,
+                            depth = factor(JZB14$depth,levels = JZB14$depth)), 
+                      cols = -depth)
+#----plot 将画图语句打包成函数
+plotout <- function(x){
+    ggplot(data = x,mapping = aes(x = depth,y = value,
+                                  color = name,group = name,linetype = name))+   
+       #画置信区间
+       geom_ribbon(aes(ymin = -1.96,ymax = 1.96),
+                   fill = "grey",alpha = 0.2,outline.type="both",lwd = 0)+
+       #geom_hline(yintercept=c(-1.96,1.96),linetype="dashed",alpha=1,lwd=0.8,color="black")+
+       #画0线
+       geom_hline(yintercept = 0,alpha = 1,lwd = 0.8,color = "#ffd401")+
+       geom_line(lwd = 0.8)+   
+       #设置X轴刻度为离散型
+       scale_x_discrete(breaks = seq(0,40,by = 2))+
+       #设置uf ub 的线条类型，此处设置为一样
+       scale_linetype_manual(values = c(1,1))+
+       #设置uf ub 的线条颜色
+       scale_color_manual(values = c("#156077","#f46f20"))+
+       #coord_fixed(ratio=3)+
+       #coord_equal(ratio=4)+
+       labs(x = "Depth (cm)",y = "UF")+ 
+       theme_bw()+
+       theme(
+             axis.text = element_text(size = 16,hjust = 0.5,angle = 0),
+             axis.title = element_text(color = "black",size =16 ,hjust = 0.5),
+             axis.ticks = element_line(size = 0.8),
+             axis.ticks.length.x = unit(-0.07,"in"),
+             #plot.title = element_text(face="bold",size=18,vjust=0),
+             plot.margin = unit(c(0.2,0.2,0.2,0.2), "cm"),
+             #设置图例
+             legend.title = element_blank(),
+             legend.text = element_text(size = 14),
+             legend.position = c(.7, 1),
+             legend.key = element_rect(fill = "white",color = "white"),
+             legend.background = element_rect(fill = "transparent"),
+             legend.direction = "horizontal",
+             panel.border = element_blank(),
+             panel.grid.major.x = element_line(color = "white",size = 0),
+             panel.grid.major.y = element_line(color = "gray",size = 0.25),
+             panel.grid.minor.y = element_blank(),
+            )
+}
+
+#----out 执行画图函数
+Fig1 <- plotout(tb_toc)
+Fig2 <- plotout(tb_tn)
+Fig3 <- plotout(tb_cnratio)
+Fig4 <- plotout(tb_c13)
+Fig5 <- plotout(tb_n15)
+Fig6 <- plotout(tb_bsi)
+Fig7 <- plotout(tb_tp)
+Fig8 <- plotout(tb_ip)
+Fig9 <- plotout(tb_op)
+
+#使用patchwork进行图片排版
+Figs <- (Fig1+Fig2+Fig7)/(Fig8+Fig9+Fig6)/(Fig3+Fig4+Fig5)
+Figoutput <- 
+    Figs+
+    plot_annotation(tag_levels = list(c("TOC","TN","TP","IP","OP","BSi","C/N","δ13C","δ15N")),
+                    tag_suffix = '.', 
+                    title = "JZB14 MK Change Point") & 
+    theme(#plot.tag.position = c(0, 1),
+          plot.tag = element_text(size = 16, hjust = -2, vjust = 0.5),
+          plot.title = element_text( size = 16)
+          )
+                     #给图片添加标题和标签
+
+
+#保存图片
+ggsave("JZB14MK突变.png",height = 30 ,width = 55,units = "cm",dpi = 600 )
+```
+
+
+
